@@ -1,0 +1,29 @@
+{
+   "name": "@aloof/mv-interactive",
+   "version": "0.0.2",
+   "description": "comfy tool to move files through shell",
+   "main": "index.js",
+   "scripts": {
+      "start": "node ./index.js"
+   },
+   "repository": "https://github.com/sean-codes/serve-dev",
+   "bin": {
+      "mvi": "./index.js"
+   },
+   "files": [
+      "./index.js"
+   ],
+   "keywords": [
+      "mv",
+      "move",
+      "shell",
+      "bash",
+      "interactive",
+      "script",
+      "terminal",
+      "file",
+      "files"
+   ],
+   "author": "sean-codes",
+   "license": "ISC"
+}
