@@ -1,5 +1,5 @@
 # mv-interactive
-A more comfortable mv
+A comfortable mv command ❤️
 
 ```shell
 npm install @aloof/mv-interactive
