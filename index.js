@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+
 const fs = require('fs')
 const path = require('path')
 const { exec } = require('child_process')
@@ -8,6 +9,11 @@ const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 })
+
+// outputs path on no chang exit to files MVI_MOVE_PATH.txt and MVI_MOVE_FROM.txt
+// can use this for an interactive cd command. from my understanding you can not pass
+// data outside an interactive nodejs promt in a clean way :(
+var isExperimentalCDWriteMode = process.argv.includes('-cd') 
 
 var DIRECTORY = process.cwd()
 
@@ -18,6 +24,12 @@ var writtenLines = 0
 // console.log('[navigate=arrow keys | select=spacebar | confirm=return | escape=esc]')
 console.log('')
 
+var ACTIONS = {
+   move: 'move',
+   cancel: 'cancel',
+   copy: 'copy',
+   delete: 'delete',
+}
 
 var data = {
    path: DIRECTORY,
@@ -25,7 +37,7 @@ var data = {
    files: getFiles(DIRECTORY),
    selected: [],
    page: 'select',
-   confirm: true,
+   confirm: 0,
 }
 
 function getFiles(dirPath) {
@@ -42,18 +54,20 @@ function matchFiles(f1, f2) {
    return (f1.name == f2.name && f1.path == f2.path) 
 }
 
-function moveSelectedFiles() {
+function moveSelectedFiles(action) {
    var isSafeMove = true // only a basic check. not really safe :>
 
-   for (var file of data.selected) {
-      var oldPath = path.join(file.path, file.name)
-      var newPath = path.join(data.path, file.name)
+   if (action !== ACTIONS.delete) {
+      for (var file of data.selected) {
+         var oldPath = path.join(file.path, file.name)
+         var newPath = path.join(data.path, file.name)
 
-      // old = /folder1
-      // new = /folder1/folder1
-      if (newPath.startsWith(oldPath)) {
-         console.log('ERROR!!!! STOP!!!')
-         isSafeMove = false
+         // old = /folder1
+         // new = /folder1/folder1
+         if (newPath.startsWith(oldPath)) {
+            console.log('ERROR!!!! STOP!!!')
+            isSafeMove = false
+         }
       }
    }
 
@@ -63,21 +77,24 @@ function moveSelectedFiles() {
          var oldPath = path.join(file.path, file.name)
          var newPath = path.join(data.path, file.name)
          // console.log('Moving', oldPath, 'to', newPath)
-         fs.renameSync(oldPath, newPath)
+         if (action === ACTIONS.copy) 
+            fs.copyFileSync(oldPath, newPath)
+         if (action === ACTIONS.move) 
+            fs.renameSync(oldPath, newPath)
+         if (action === ACTIONS.delete) 
+            fs.unlinkSync(oldPath)
       }
-
-      console.log('Move complete')
    }
 }
 
 listenForKeyPress((key) => {
    if (key === 'up') {
       data.cursor = Math.max(0, data.cursor - 1)
-      data.confirm = !data.confirm
+      data.confirm = Math.max(data.confirm - 1, 0)
    }
    if (key === 'down') {
       data.cursor = Math.min(data.files.length-1, data.cursor + 1)
-      data.confirm = !data.confirm
+      data.confirm = Math.min(Object.keys(ACTIONS).length-1, data.confirm + 1)
    }
 
    // move path back 1
@@ -105,7 +122,7 @@ listenForKeyPress((key) => {
       } catch (e) {}
    }
 
-   if (key === 'space') {
+   if (key === 'space' && !isExperimentalCDWriteMode) {
       var fileAtCursor = data.files[data.cursor]
       var isSelected = data.selected.find(f => matchFiles(f, fileAtCursor))
 
@@ -117,13 +134,21 @@ listenForKeyPress((key) => {
    }
 
    if (key === 'return') {
-      if (data.page == 'confirm') {
+      const onSelectAndNoSelect = data.page == 'select' && data.selected.length == 0
+      if (onSelectAndNoSelect) {
+         if (isExperimentalCDWriteMode) {
+            fs.writeFileSync('./mvi_move_from.txt', path.join(DIRECTORY))
+            fs.writeFileSync('./mvi_move_to.txt', data.path)
+         }
+         exitUi()
+         
+      } else if (data.page == 'confirm') {
          // move em!!
-         if (data.confirm) moveSelectedFiles()
+         moveSelectedFiles(ACTIONS[Object.keys(ACTIONS)[data.confirm]])
          exitUi()
       } else {
          data.page = 'confirm'
-         data.confirm = true
+         data.confirm = 0
       }
 
    }
@@ -148,15 +173,17 @@ function render() {
       ? '...' + data.path.slice(data.path.length - maxLen + 3, data.path.length)
       : data.path
    writeLine('Path ' + currentLocationTrunc)
-   writeLine('Selected: ' + (data.selected.length ? data.selected.map(f=>f.name) : 'Nothing!'))
+   !isExperimentalCDWriteMode && writeLine('Selected: ' + (data.selected.length ? data.selected.map(f=>f.name) : 'Nothing!'))
    writeLine(new Array(renderWidth-2).fill('-').join(''))
 
 
    if (data.page === 'confirm') {
       // confirm page
       writeLine('Are you sure?')
-      writeLine(`[${data.confirm ? 'x' : ' '}] yes`)
-      writeLine(`[${!data.confirm ? 'x' : ' '}] no`)
+      writeLine(`[${data.confirm == 0 ? 'x' : ' '}] yes`)
+      writeLine(`[${data.confirm == 1 ? 'x' : ' '}] no`)
+      writeLine(`[${data.confirm == 2 ? 'x' : ' '}] copy`)
+      writeLine(`[${data.confirm == 3 ? 'x' : ' '}] delete`)
    }
 
 
@@ -184,7 +211,8 @@ function render() {
          var file = data.files[i]
          var icon = i == data.cursor ? '>' : ' '
          var checked = data.selected.find(f => matchFiles(f, file)) ? 'x' : ' '
-         writeLine(`${icon} [${checked}] ${file.name}`)
+         var checkedDisplay = isExperimentalCDWriteMode ? '' : `[${checked}]`
+         writeLine(`${icon} ${checkedDisplay} ${file.name}`)
       }
 
       if (!data.files.length) {

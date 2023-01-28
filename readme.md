@@ -17,4 +17,8 @@ $ mvi
 Arrows = Navigate
 Space = Select File
 Enter = Confirm
+
+> Confirm choose [yes, no, copy, delete]
+
+Move complete!
 ```
