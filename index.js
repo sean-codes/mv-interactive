@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-
 const fs = require('fs')
 const path = require('path')
 const { exec } = require('child_process')
@@ -9,7 +8,7 @@ const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 })
-
+process.stdin.setRawMode(true)
 // outputs path on no chang exit to files MVI_MOVE_PATH.txt and MVI_MOVE_FROM.txt
 // can use this for an interactive cd command. from my understanding you can not pass
 // data outside an interactive nodejs promt in a clean way :(
@@ -17,18 +16,19 @@ var isExperimentalCDWriteMode = process.argv.includes('-cd')
 
 var DIRECTORY = process.cwd()
 
-var renderHeight = 6
-var renderWidth = process.stdout.columns
+var renderHeight = 0
+var renderWidth = 0//process.stdout.columns
 var writtenLines = 0
 
+
 // console.log('[navigate=arrow keys | select=spacebar | confirm=return | escape=esc]')
-console.log('')
+// console.log('')
 
 var ACTIONS = {
    move: 'move',
-   cancel: 'cancel',
    copy: 'copy',
    delete: 'delete',
+   cancel: 'cancel',
 }
 
 var data = {
@@ -39,6 +39,7 @@ var data = {
    page: 'select',
    confirm: 0,
 }
+
 
 function getFiles(dirPath) {
    var files = fs.readdirSync(dirPath)
@@ -97,28 +98,33 @@ listenForKeyPress((key) => {
       data.confirm = Math.min(Object.keys(ACTIONS).length-1, data.confirm + 1)
    }
 
+   if ('qwertyuiopasdfghjklzxcvbnm'.split('').includes(key)) {
+      initCursor(key)
+   }
+
    // move path back 1
    if (key === 'left') {
       if (data.page == 'confirm') {
          data.page = 'select'
       } else {
          var newPath = data.path.split('/')
-         newPath.pop()
+         var lastPath = newPath.pop()
          data.path = newPath.length > 1 ? newPath.join('/') : '/'
          data.files = getFiles(data.path)
-         data.cursor = 0
+
+         initCursor(lastPath)
       }
    }
 
    if (key === 'right') {
       try {
-
-         var isDir = fs.lstatSync(data.path + '/' + data.files[data.cursor].name).isDirectory()
+         var targetPath = path.join(data.path, data.files[data.cursor].name)
+         var isDir = fs.lstatSync(targetPath).isDirectory()
          if (isDir) {
-            data.path += '/' + data.files[data.cursor].name
+            data.path = targetPath
          }
          data.files = getFiles(data.path)
-         data.cursor = 0
+         initCursor()         
       } catch (e) {}
    }
 
@@ -137,15 +143,15 @@ listenForKeyPress((key) => {
       const onSelectAndNoSelect = data.page == 'select' && data.selected.length == 0
       if (onSelectAndNoSelect) {
          if (isExperimentalCDWriteMode) {
-            fs.writeFileSync('./mvi_move_from.txt', path.join(DIRECTORY))
-            fs.writeFileSync('./mvi_move_to.txt', data.path)
+            fs.writeFileSync('/tmp/mvi_move_from.txt', path.join(DIRECTORY))
+            fs.writeFileSync('/tmp/mvi_move_to.txt', data.path)
          }
-         exitUi()
          
+         exitUi(0)
       } else if (data.page == 'confirm') {
          // move em!!
          moveSelectedFiles(ACTIONS[Object.keys(ACTIONS)[data.confirm]])
-         exitUi()
+         exitUi(0)
       } else {
          data.page = 'confirm'
          data.confirm = 0
@@ -157,16 +163,30 @@ listenForKeyPress((key) => {
 })
 
 initialize(() => {
-   
+   initCursor()
    render()
 })
 
+function initCursor(lastFile = null) {
+   data.cursor = 0
+   for (var i in data.files) {
+      var fileName = data.files[i].name
+      if (!lastFile && fileName.startsWith('.')) 
+         data.cursor = Number(i) + 1
 
+      if (fileName.toLowerCase().startsWith(lastFile)) {
+         data.cursor = Number(i)
+         break
+      }
+   }
+
+   data.cursor = Math.min(data.files.length, data.cursor)
+}
 
 function render() {
    // clear
    clearUi()
-
+   
    // write out info
    var maxLen = renderWidth - 'Path '.length - 5
    var currentLocationTrunc = data.path.length > maxLen 
@@ -180,22 +200,23 @@ function render() {
    if (data.page === 'confirm') {
       // confirm page
       writeLine('Are you sure?')
-      writeLine(`[${data.confirm == 0 ? 'x' : ' '}] yes`)
-      writeLine(`[${data.confirm == 1 ? 'x' : ' '}] no`)
-      writeLine(`[${data.confirm == 2 ? 'x' : ' '}] copy`)
-      writeLine(`[${data.confirm == 3 ? 'x' : ' '}] delete`)
+      writeLine(`[${data.confirm == 0 ? 'x' : ' '}] move`)
+      writeLine(`[${data.confirm == 1 ? 'x' : ' '}] copy`)
+      writeLine(`[${data.confirm == 2 ? 'x' : ' '}] delete`)
+      writeLine(`[${data.confirm == 3 ? 'x' : ' '}] cancel`)
    }
 
 
    if (data.page === 'select') {
       // file picker page
+      // todo: use linesLeft to calculate
       var start = data.cursor - 3
       var end = data.cursor + 3
 
       var bottomOffAmount = start
       if (bottomOffAmount < 0) {
          start = 0
-         end -= bottomOffAmount
+         end = end - bottomOffAmount
       }
 
       var topOffAmount = end - data.files.length
@@ -207,6 +228,7 @@ function render() {
       var start = Math.max(0, start)
       var end = Math.min(data.files.length, end)
 
+      // writeLine('start: ' + start + ' end: ' + end)
       for (var i = start; i < end; i++) {
          var file = data.files[i]
          var icon = i == data.cursor ? '>' : ' '
@@ -222,28 +244,30 @@ function render() {
    }
 }
 
-
 function initialize(callBack) {
-   // var interval = setInterval(() => {
-   //    if (renderWidth > 0 && renderHeight > 0) {
-   //       clearInterval(interval)
-   //    }
+   var interval = setInterval(() => {
+      if (renderWidth > 0 && renderHeight > 0) {
+         clearInterval(interval)
+         
+         console.log('\u001B[?25l');
+
+         callBack()
+      }
+   })
+
+
+   getSize()
+   // process.on('exit', () => {
+   //    exitUi(2)
    // })
-
-   rl.write('\u001B[?25l');
-
-   for (var i = 0; i < renderHeight; i++) {
-      writeLine(i)
-   }  
-
-   clearUi()
-   callBack()
-   // getSize()
 }
 
-function exitUi() {
+function exitUi(code = 2) {
+   console.log('')
    rl.write('\u001B[?25h')
-   process.exit()
+   // process.stderr.write('No')
+   process.stdout.cursorTo(0)
+   process.exit(code)
 }
 
 function writeLine(text = '') {
@@ -256,20 +280,30 @@ function writeLine(text = '') {
 }
 
 function clearUi() {
-   if (!writtenLines) return
-   readline.moveCursor(process.stdin, -100000, (writtenLines)*-1)
-   readline.clearScreenDown(process.stdin)
+   // if (!writtenLines) return
+   // readline.moveCursor(process.stdin, -100000, (writtenLines)*-1)
+   // readline.clearScreenDown(process.stdin)
+   // writtenLines = 0
+   readline.moveCursor(process.stdout, -100000, -writtenLines)
+   readline.clearScreenDown(process.stdout)
+
+   // clear
+   for (var i = 0; i < renderHeight; i++) {
+      console.log('yo ' + i)
+   }
+
+   readline.moveCursor(process.stdout, -100000, -renderHeight)
+   readline.clearScreenDown(process.stdout)
+   
    writtenLines = 0
 }
-
-
 
 //-----------------------------------------------------------
 // Keyboard Listening
 //-----------------------------------------------------------
 function listenForKeyPress(callBack) {
    readline.emitKeypressEvents(process.stdin)
-   process.stdin.setRawMode(true)
+   
    process.stdin.on('keypress', (str, key) => {
 
       // console.log(key.name)
@@ -279,14 +313,13 @@ function listenForKeyPress(callBack) {
 
       var shouldExit = (key.ctrl && key.name === 'c') || key.name == 'escape'
       if (shouldExit) {
-         exitUi()
+         exitUi(2)
       } else {
          // console.log('pressed: ' + key.name)
          callBack(key.name)
       }
    });
 }
-
 
 //-----------------------------------------------------------
 // Resizing / Terminal
@@ -297,12 +330,17 @@ function listenForKeyPress(callBack) {
 
 function getSize() {
    exec('tput cols', (err, stdout, stderr) => {
-      renderWidth = Number(stdout)
-      console.log(`width: ${stdout}`);
+
+      renderWidth = process.stdout.columns
+      // console.log(`width: ${renderWidth}`);
    })
 
    exec('tput lines', (err, stdout, stderr) => {
-      renderHeight = Number(stdout)
-      console.log(`height: ${stdout}`);
+      // need a clear way for this. doesnt work in some terminals :(
+      renderHeight = 10
+      // renderHeight = process.stdout.rows - 2
+      // renderHeight = Math.max(process.stdout.rows-2, 10)
+      // renderHeight = Math.max(Number(stdout)-2, 10)
+      // console.log(`height: ${renderHeight}`);
    })
 }

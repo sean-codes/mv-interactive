@@ -2,14 +2,14 @@
 A comfortable mv command ❤️
 
 ```shell
-npm install @aloof/mv-interactive
+npm --global install @aloof/mv-interactive
 ```
 
 <img src="https://raw.githubusercontent.com/sean-codes/mv-interactive/main/example.gif" />
 
 # Usage
 
-```
+```shell
 $ mvi
 
 > Move file promt shows
@@ -22,3 +22,11 @@ Enter = Confirm
 
 Move complete!
 ```
+
+
+# cd
+
+You can use this tool for interactive cd too! see: [cdi.sh](#)
+
+<img src="https://raw.githubusercontent.com/sean-codes/mv-interactive/main/example-cdi.gif" />
+
