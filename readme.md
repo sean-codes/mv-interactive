@@ -1,4 +1,5 @@
 # mv-interactive
+
 A comfortable mv command ❤️
 
 ```shell
@@ -18,7 +19,7 @@ Arrows = Navigate
 Space = Select File
 Enter = Confirm
 
-> Confirm choose [yes, no, copy, delete]
+> Confirm choose [move, copy, delete, cancel]
 
 Move complete!
 ```
@@ -26,7 +27,7 @@ Move complete!
 
 # cd
 
-You can use this tool for interactive cd too! see: [cdi.sh](#)
+You can use this tool for interactive cd! see: [cdi.sh](https://github.com/sean-codes/mv-interactive/blob/main/cdi.sh)
 
 <img src="https://raw.githubusercontent.com/sean-codes/mv-interactive/main/example-cdi.gif" />
 
