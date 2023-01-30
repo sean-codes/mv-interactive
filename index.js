@@ -250,10 +250,15 @@ function initialize(callBack) {
          clearInterval(interval)
          
          console.log('\u001B[?25l');
+         for (var i = 0; i < renderHeight; i++) {
+            writeLine('')
+         }
 
          callBack()
       }
    })
+
+
 
 
    getSize()
@@ -288,12 +293,12 @@ function clearUi() {
    readline.clearScreenDown(process.stdout)
 
    // clear
-   for (var i = 0; i < renderHeight; i++) {
-      console.log('yo ' + i)
-   }
+   // for (var i = 0; i < renderHeight; i++) {
+   //    console.log('clear ' + i)
+   // }
 
-   readline.moveCursor(process.stdout, -100000, -renderHeight)
-   readline.clearScreenDown(process.stdout)
+   // readline.moveCursor(process.stdout, -100000, -renderHeight)
+   // readline.clearScreenDown(process.stdout)
    
    writtenLines = 0
 }
@@ -331,7 +336,7 @@ function listenForKeyPress(callBack) {
 function getSize() {
    exec('tput cols', (err, stdout, stderr) => {
 
-      renderWidth = process.stdout.columns
+      renderWidth = process.stdout.columns - 5
       // console.log(`width: ${renderWidth}`);
    })
 
