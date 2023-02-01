@@ -156,7 +156,12 @@ listenForKeyPress((key) => {
          data.page = 'confirm'
          data.confirm = 0
       }
+   }
 
+   if (key === 'backspace') {
+      data.path = DIRECTORY
+      data.files = getFiles(data.path)
+      initCursor()
    }
 
    render()
@@ -321,7 +326,7 @@ function listenForKeyPress(callBack) {
          exitUi(2)
       } else {
          // console.log('pressed: ' + key.name)
-         callBack(key.name)
+         callBack(key.name.toLowerCase())
       }
    });
 }

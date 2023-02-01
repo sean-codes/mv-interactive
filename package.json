@@ -1,6 +1,6 @@
 {
    "name": "@aloof/mv-interactive",
-   "version": "1.3.5",
+   "version": "1.4.5",
    "description": "comfy tool to move files through shell",
    "main": "index.js",
    "scripts": {
